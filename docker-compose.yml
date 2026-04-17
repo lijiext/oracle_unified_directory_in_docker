@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  # 1. Oracle Database - OAM 核心元数据存储
+  iam-db:
+    image: container-registry.oracle.com/database/enterprise:19.3.0.0
+    container_name: iam-db
+    environment:
+      - ORACLE_SID=${DB_SID:-ORCL}
+      - ORACLE_PDB=${DB_PDB:-PDB1}
+      - ORACLE_PWD=${DB_PWD:-Welcome1}
+      - ORACLE_CHARACTERSET=AL32UTF8
+    ports:
+      - "1521:1521"
+    volumes:
+      - db_data:/opt/oracle/oradata
+    networks:
+      - iam-network
+    healthcheck:
+      test: [ "CMD-SHELL", "oracle_health_check.sh" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # 2. Oracle Unified Directory (OUD) - 用户目录服务
+  iam-oud:
+    image: container-registry.oracle.com/middleware/oud:12.2.1.4.0
+    container_name: iam-oud
+    environment:
+      - OUD_INSTANCE_NAME=oud_inst1
+      - OUD_ADMIN_PASSWORD=${OUD_PWD:-Welcome1}
+      - OUD_ROOT_USER_DN=${OUD_ROOT_DN:-cn=Directory Manager}
+      - OUD_ROOT_USER_PASSWORD=${OUD_PWD:-Welcome1}
+      - OUD_LDAP_PORT=${OUD_LDAP_PORT:-1389}
+      - OUD_LDAPS_PORT=${OUD_LDAPS_PORT:-1636}
+      - OUD_ADMIN_PORT=${OUD_ADMIN_PORT:-4444}
+    ports:
+      - "${OUD_LDAP_PORT:-1389}:1389"
+      - "${OUD_LDAPS_PORT:-1636}:1636"
+      - "${OUD_ADMIN_PORT:-4444}:4444"
+    volumes:
+      - oud_data:/u01/oracle/user_projects
+      - ./ldif:/u01/oracle/user_projects/ldif:ro
+      - ./setup:/u01/oracle/setup:ro
+      - ./.env:/u01/oracle/.env:ro
+    networks:
+      - iam-network
+
+  # 3. OUD Services Manager (OUDSM) - OUD 管理控制台
+  iam-oudsm:
+    image: container-registry.oracle.com/middleware/oudsm:12.2.1.4.0
+    container_name: iam-oudsm
+    environment:
+      - OUDSM_ADMIN_PASSWORD=${OUD_PWD:-Welcome1}
+    ports:
+      - "7001:7001"
+    depends_on:
+      - iam-oud
+    networks:
+      - iam-network
+
+  # 4. Oracle Access Manager (OAM) - 身份认证与授权
+  iam-oam:
+    image: container-registry.oracle.com/middleware/oam:12.2.1.4.0
+    container_name: iam-oam
+    environment:
+      - CONNECTION_STRING=iam-db:1521/${DB_PDB:-PDB1}
+      - DB_PASSWORD=${DB_PWD:-Welcome1}
+      - DB_SCHEMA_PASSWORD=${OAM_DB_SCHEMA_PWD:-Welcome1}
+      - ADMIN_PASSWORD=${OAM_ADMIN_PWD:-Welcome1}
+      - MANAGED_SERVER_NAME=oam_server1
+      - DOMAIN_NAME=${OAM_DOMAIN:-oam_domain}
+    ports:
+      - "7002:7001" # Admin Server
+      - "${OAM_SERVER_PORT:-14100}:14100" # OAM Server
+    depends_on:
+      iam-db:
+        condition: service_healthy
+      iam-oud:
+        condition: service_started
+    volumes:
+      - oam_data:/u01/oracle/user_projects
+      - shared_data:/u01/oracle/shared
+      - ./scripts:/u01/oracle/scripts:ro
+      - ./setup:/u01/oracle/setup:ro
+      - ./.env:/u01/oracle/.env:ro
+    networks:
+      - iam-network
+
+  # 5. Oracle HTTP Server (OHS) - 反向代理及 OAM WebGate
+  iam-ohs:
+    image: container-registry.oracle.com/middleware/ohs:12.2.1.4-db19-jdk8-ol8
+    container_name: iam-ohs
+    environment:
+      - ADMIN_PASSWORD=${OHS_ADMIN_PWD:-Welcome1}
+      - OHS_COMPONENT_NAME=ohs1
+      - OHS_LISTEN_PORT=${OHS_PORT:-7777}
+      - OHS_SSL_PORT=${OHS_SSL_PORT:-4443}
+    ports:
+      - "${OHS_PORT:-7777}:7777"
+      - "${OHS_SSL_PORT:-4443}:4443"
+    depends_on:
+      - iam-oam
+    volumes:
+      - ohs_data:/u01/oracle/user_projects
+      - shared_data:/u01/oracle/shared
+      - ./setup:/u01/oracle/setup:ro
+      - ./.env:/u01/oracle/.env:ro
+    networks:
+      - iam-network
+
+networks:
+  iam-network:
+    driver: bridge
+
+volumes:
+  db_data:
+  oud_data:
+  oam_data:
+  ohs_data:
+  shared_data:
