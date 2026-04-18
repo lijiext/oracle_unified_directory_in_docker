@@ -1,5 +1,5 @@
 services:
-  # 1. Oracle Database - OAM 核心元数据存储
+  # 1. Oracle Database - OUD 数据存储
   iam-db:
     image: container-registry.oracle.com/database/enterprise:19.3.0.0
     container_name: iam-db
@@ -24,6 +24,7 @@ services:
   iam-oud:
     image: container-registry.oracle.com/middleware/oud:12.2.1.4.0
     container_name: iam-oud
+    user: "1000:0"
     environment:
       - OUD_INSTANCE_NAME=${OUD_INSTANCE_NAME:-oud_inst1}
       - rootUserDN=${OUD_ROOT_DN:-cn=Directory Manager}
@@ -32,11 +33,18 @@ services:
       - ldapPort=${OUD_LDAP_PORT:-1389}
       - ldapsPort=${OUD_LDAPS_PORT:-1636}
       - adminConnectorPort=${OUD_ADMIN_PORT:-4444}
+      - httpPort=${OUD_HTTP_PORT:-1080}
+      - httpsPort=${OUD_HTTPS_PORT:-1081}
+      - httpAdminConnectorPort=${OUD_REST_ADMIN_PORT:-8444}
       - baseDN=dc=example,dc=com
+      - sampleData=200
     ports:
       - "${OUD_LDAP_PORT:-1389}:1389"
       - "${OUD_LDAPS_PORT:-1636}:1636"
       - "${OUD_ADMIN_PORT:-4444}:4444"
+      - "${OUD_HTTP_PORT:-1080}:1080"
+      - "${OUD_HTTPS_PORT:-1081}:1081"
+      - "${OUD_REST_ADMIN_PORT:-8444}:8444"
     volumes:
       - oud_data:/u01/oracle/user_projects
       - ./ldif:/u01/oracle/user_projects/ldif:ro
@@ -77,76 +85,6 @@ services:
       timeout: 10s
       retries: 10
 
-  # 4. Oracle Access Manager (OAM) - 身份认证与授权
-  iam-oam:
-    image: container-registry.oracle.com/middleware/oam:12.2.1.4.0
-    container_name: iam-oam
-    user: "1000:0"
-    environment:
-      - DOMAIN_NAME=${OAM_DOMAIN:-oam_domain}
-      - ADMIN_USER=weblogic
-      - ADMIN_PASSWORD=${OAM_ADMIN_PWD:-Welcome1}
-      - CONNECTION_STRING=iam-db:1521/${DB_PDB:-PDB1}
-      - RCUPREFIX=OAM01
-      - DB_USER=sys
-      - DB_PASSWORD=${DB_PWD:-Welcome1}
-      - DB_SCHEMA_PASSWORD=${OAM_DB_SCHEMA_PWD:-Welcome1}
-      - MANAGED_SERVER_NAME=oam_server1
-    ports:
-      - "7002:7001" # Admin Server
-      - "${OAM_SERVER_PORT:-14100}:14100" # OAM Server
-    depends_on:
-      iam-db:
-        condition: service_healthy
-      iam-oud:
-        condition: service_healthy
-      iam-oudsm:
-        condition: service_healthy
-    volumes:
-      - oam_data:/u01/oracle/user_projects
-      - shared_data:/u01/oracle/shared
-      - ./scripts:/u01/oracle/scripts:ro
-      - ./setup:/u01/oracle/setup:ro
-      - ./.env:/u01/oracle/.env:ro
-    networks:
-      - iam-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:7001/console > /dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 20
-
-  # 5. Oracle HTTP Server (OHS) - 反向代理及 OAM WebGate
-  iam-ohs:
-    image: container-registry.oracle.com/middleware/ohs:12.2.1.4-db19-jdk8-ol8
-    container_name: iam-ohs
-    user: "1000:0"
-    environment:
-      - DOMAIN_NAME=ohsDomain
-      - OHS_COMPONENT_NAME=ohs1
-      - OHS_LISTEN_PORT=${OHS_PORT:-7777}
-      - OHS_SSL_PORT=${OHS_SSL_PORT:-4443}
-      - ADMIN_PASSWORD=${OHS_ADMIN_PWD:-Welcome1}
-    ports:
-      - "${OHS_PORT:-7777}:7777"
-      - "${OHS_SSL_PORT:-4443}:4443"
-    depends_on:
-      iam-oam:
-        condition: service_healthy
-    volumes:
-      - ohs_data:/u01/oracle/user_projects
-      - shared_data:/u01/oracle/shared
-      - ./setup:/u01/oracle/setup:ro
-      - ./.env:/u01/oracle/.env:ro
-      - ./ohs_boot:/u01/oracle/bootdir:ro
-    networks:
-      - iam-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:7777 > /dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-
 networks:
   iam-network:
     driver: bridge
@@ -154,6 +92,3 @@ networks:
 volumes:
   db_data:
   oud_data:
-  oam_data:
-  ohs_data:
-  shared_data:

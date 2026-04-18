@@ -15,20 +15,34 @@ DS_SETUP="/u01/oracle/oud/bin/dssetup"
 if [ -d "$INSTANCE_HOME" ]; then
     echo "OUD instance already exists at $INSTANCE_HOME. Skipping creation."
 else
-    echo "Creating OUD instance at $INSTANCE_HOME..."
+    echo "Creating OUD instance at $INSTANCE_HOME with REST API support..."
     /u01/oracle/oud/oud-setup \
       --cli \
       --baseDN dc=example,dc=com \
-      --ldapPort ${OUD_LDAP_PORT:-1389} \
-      --adminConnectorPort ${OUD_ADMIN_PORT:-4444} \
-      --rootUserDN "${OUD_ROOT_USER_DN:-cn=Directory Manager}" \
-      --rootUserPassword "${OUD_ROOT_USER_PASSWORD:-Welcome1}" \
-      --no-prompt
+      --ldapPort ${ldapPort:-1389} \
+      --adminConnectorPort ${adminConnectorPort:-4444} \
+      --httpAdminConnectorPort ${httpAdminConnectorPort:-8444} \
+      --rootUserDN "${rootUserDN:-cn=Directory Manager}" \
+      --rootUserPassword "${rootUserPassword:-Welcome1}" \
+      --ldapPort ${ldapPort:-1389} \
+      --ldapsPort ${ldapsPort:-1636} \
+      --httpPort ${httpPort:-1080} \
+      --httpsPort ${httpsPort:-1081} \
+      --generateSelfSignedCertificate \
+      --sampleData 200 \
+      --serverTuning jvm-default \
+      --offlineToolsTuning jvm-default \
+      --no-prompt \
+      --noPropertiesFile
 fi
 
-# 额外的安全配置：启用 SSL (LDAPS)
-if [ ! -f "$INSTANCE_HOME/config/keystore" ]; then
-    echo "Enabling LDAPS for OUD..."
-    # 实际生产中应使用正式证书，此处为示意
-    # $INSTANCE_HOME/bin/dsconfig set-connection-handler-prop --handler-name "LDAPS Connection Handler" --set enabled:true ...
-fi
+# 配置全局 ACI 以允许用户访问自己的条目（REST API 所需）
+echo "Updating global-aci for self-read access..."
+/u01/oracle/user_projects/${OUD_INSTANCE_NAME:-oud_inst1}/OUD/bin/dsconfig set-access-control-handler-prop \
+  --hostname localhost \
+  --port ${adminConnectorPort:-4444} \
+  --trustAll \
+  --bindDN "${rootUserDN:-cn=Directory Manager}" \
+  --bindPassword "${rootUserPassword:-Welcome1}" \
+  --add "global-aci:(targetattr!=\"userPassword||authPassword\")(version 3.0; acl \"Self read access\"; allow (read,search,compare) userdn=\"ldap:///self\";)" \
+  --no-prompt
