@@ -3,7 +3,11 @@
 # OAM Domain Setup Script (Runs inside OAM container)
 # -------------------------------------------------------------------------
 
-source /u01/oracle/.env 2>/dev/null || true
+if [ -f /u01/oracle/.env ]; then
+    set -a
+    source /u01/oracle/.env
+    set +a
+fi
 
 DOMAIN_HOME="/u01/oracle/user_projects/domains/${OAM_DOMAIN:-oam_domain}"
 WLST="/u01/oracle/oracle_common/common/bin/wlst.sh"

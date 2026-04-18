@@ -3,7 +3,11 @@
 # OUD Setup Script (Runs inside OUD container)
 # -------------------------------------------------------------------------
 
-source /u01/oracle/.env 2>/dev/null || true
+if [ -f /u01/oracle/.env ]; then
+    set -a
+    source /u01/oracle/.env
+    set +a
+fi
 
 INSTANCE_HOME="/u01/oracle/user_projects/instances/${OUD_INSTANCE_NAME:-oud_inst1}"
 DS_SETUP="/u01/oracle/oud/bin/dssetup"

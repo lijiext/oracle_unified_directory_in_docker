@@ -4,7 +4,11 @@
 # This script runs inside the OAM container to create the metadata schema in DB
 # -------------------------------------------------------------------------
 
-source /u01/oracle/.env 2>/dev/null || true
+if [ -f /u01/oracle/.env ]; then
+    set -a
+    source /u01/oracle/.env
+    set +a
+fi
 
 RCU_BIN="/u01/oracle/oracle_common/bin/rcu"
 DB_CONN="${CONNECTION_STRING:-iam-db:1521/PDB1}"

@@ -3,7 +3,11 @@
 # OHS & WebGate Setup Script (Runs inside OHS container)
 # -------------------------------------------------------------------------
 
-source /u01/oracle/.env 2>/dev/null || true
+if [ -f /u01/oracle/.env ]; then
+    set -a
+    source /u01/oracle/.env
+    set +a
+fi
 
 OHS_DOMAIN_HOME="/u01/oracle/user_projects/domains/ohs_domain"
 OHS_INST_NAME="${OHS_COMPONENT_NAME:-ohs1}"
