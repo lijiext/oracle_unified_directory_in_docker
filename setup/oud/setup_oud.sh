@@ -1,6 +1,6 @@
 #!/bin/bash
 # -------------------------------------------------------------------------
-# OUD Setup Script (Runs inside OUD container)
+# OUD 实例初始化脚本
 # -------------------------------------------------------------------------
 
 if [ -f /u01/oracle/.env ]; then
@@ -10,12 +10,11 @@ if [ -f /u01/oracle/.env ]; then
 fi
 
 INSTANCE_HOME="/u01/oracle/user_projects/${OUD_INSTANCE_NAME:-oud_inst1}/OUD"
-DS_SETUP="/u01/oracle/oud/bin/dssetup"
 
 if [ -d "$INSTANCE_HOME" ]; then
-    echo "OUD instance already exists at $INSTANCE_HOME. Skipping creation."
+    echo "OUD 实例已存在于 $INSTANCE_HOME。跳过创建。"
 else
-    echo "Creating OUD instance at $INSTANCE_HOME with REST API support..."
+    echo "正在创建支持 REST API 的 OUD 实例于 $INSTANCE_HOME..."
     /u01/oracle/oud/oud-setup \
       --cli \
       --baseDN dc=example,dc=com \
@@ -37,7 +36,7 @@ else
 fi
 
 # 配置全局 ACI 以允许用户访问自己的条目（REST API 所需）
-echo "Updating global-aci for self-read access..."
+echo "正在更新全局 ACI 以支持自我读取访问..."
 /u01/oracle/user_projects/${OUD_INSTANCE_NAME:-oud_inst1}/OUD/bin/dsconfig set-access-control-handler-prop \
   --hostname localhost \
   --port ${adminConnectorPort:-4444} \

@@ -1,62 +1,60 @@
-# Oracle 企业级身份服务集成方案 (IAM Stack)
+# Oracle Unified Directory (OUD) REST API 部署方案
 
-本方案提供了一个基于 Docker Compose 的集成环境，包含了 Oracle 身份管理核心组件：
-- **Oracle Database (19c)**: 用于存储 OAM 的 RCU 元数据。
-- **Oracle Unified Directory (OUD)**: 提供 LDAP 用户目录服务。
-- **OUD Services Manager (OUDSM)**: 用于图形化管理 OUD。
-- **Oracle Access Manager (OAM)**: 提供单点登录 (SSO) 和身份认证。
-- **Oracle HTTP Server (OHS)**: 作为反向代理并集成 OAM WebGate。
+本项目提供了一个基于 Docker Compose 的轻量化 Oracle Unified Directory (OUD) 部署方案，专注于提供原生的 REST API 访问能力。
 
-## 1. 快速开始
+## 1. 核心组件
 
-### 1.1 环境变量配置
-在启动前，请根据需要修改 `.env` 文件中的密码和端口配置。
+- **Oracle Database (19c)**: 作为 OUD 的底层元数据和数据存储。
+- **Oracle Unified Directory (OUD) 12.2.1.4**: 提供 LDAP 目录服务及 REST/SCIM 访问接口。
+- **OUD Services Manager (OUDSM)**: 用于图形化管理 OUD 的 Web 控制台。
 
-### 1.2 自动化初始化流程
-项目提供了一个 `init.sh` 脚本，它将自动按顺序完成以下操作：
-1. 启动 `iam-db`, `iam-oud`, `iam-oudsm`。
-2. 等待数据库健康检查通过。
-3. 自动导入 `ldif/*.ldif` 中的 LDAP 数据到 OUD。
-4. 启动 `iam-oam` 容器并自动执行 RCU 创建必要的 Schema。
-5. 启动所有剩余服务（包括 `iam-ohs`）。
+## 2. 快速开始
+
+### 2.1 环境准备
+在启动前，请确保已安装 Docker 和 Docker Compose，并根据需要修改 `.env` 文件中的密码和端口配置。
+
+### 2.2 自动化初始化
+项目提供了一个 `init.sh` 脚本，它将严格按照依赖顺序完成以下操作：
+1. **清理环境**: 强制删除旧容器和数据卷（确保权限一致性）。
+2. **启动数据库**: 等待数据库进入健康状态。
+3. **启动 OUD**: 自动执行 `oud-setup` 开启 REST API 支持。
+4. **启动 OUDSM**: 自动创建 WebLogic 管理域。
+5. **深度设置**: 自动配置 Global ACI（允许用户通过 REST 自我管理）并导入 `ldif/` 下的初始数据。
 
 **运行初始化脚本：**
 ```bash
-chmod +x init.sh scripts/*.sh
+chmod +x init.sh scripts/*.sh setup/oud/*.sh
 ./init.sh
 ```
 
-## 2. 访问地址
+## 3. 服务访问地址
 
-| 组件 | URL | 默认凭据 |
-| :--- | :--- | :--- |
-| **OUDSM** | http://localhost:7001/oudsm | 见 .env (OUD_PWD) |
-| **OAM Console** | http://localhost:7002/oamconsole | 见 .env (OAM_ADMIN_PWD) |
-| **OHS (HTTP)** | http://localhost:7777 | - |
-| **OHS (HTTPS)** | https://localhost:4443 | - |
+| 组件 | 协议 | 访问地址 | 说明 |
+| :--- | :--- | :--- | :--- |
+| **OUDSM 控制台** | HTTP | [http://localhost:7001/console](http://localhost:7001/console) | 默认用户: weblogic |
+| **REST 管理 API** | HTTP | [http://localhost:8444/rest/v1/admin](http://localhost:8444/rest/v1/admin) | 用于 OUD 实例管理 |
+| **REST 数据 API** | HTTPS | [https://localhost:1081/rest/v1/directory](https://localhost:1081/rest/v1/directory) | 标准 LDAP 数据操作 |
+| **SCIM API** | HTTPS | [https://localhost:1081/iam/directory/oud/scim/v1](https://localhost:1081/iam/directory/oud/scim/v1) | 标准 SCIM 2.0 接口 |
+| **LDAP 端口** | TCP | localhost:1389 | 标准 LDAP 访问 |
+| **LDAPS 端口** | SSL | localhost:1636 | 加密 LDAP 访问 |
 
-## 3. 架构集成细节说明
+## 4. 目录结构说明
 
-### 3.1 深度 Setup 逻辑 (Deep Setup)
-与普通的容器启动不同，本项目在 `init.sh` 中集成了深层配置逻辑：
-- **OUD Setup**: 自动调用 `dssetup` 创建目录实例。
-- **OAM Setup**: 自动调用 `wlst.sh` 创建 WebLogic 域，并将 OUD 配置为身份存储。
-- **OHS Setup**: 自动创建 OHS 独立域，并为 WebGate 部署做好准备。
+- `docker-compose.yml`: 容器编排定义。
+- `.env`: 环境变量与敏感配置。
+- `init.sh`: 全局引导脚本。
+- `ldif/`: 存放初始化导入的 LDAP 数据文件。
+- `setup/oud/`: OUD 容器内部的深度配置脚本。
+- `scripts/`: 外部辅助管理脚本。
 
-### 3.2 共享卷 (Shared Data)
-项目使用了 Docker 命名卷 `shared_data`，用于在 OAM 和 OHS 容器之间共享 WebGate 配置文件：
-- **OAM**: 在集成阶段将 WebGate 代理生成的 `Wallet` 和 `Config` 放入 `/u01/oracle/shared/webgate`。
-- **OHS**: 在启动阶段自动从该位置读取配置并部署。
+## 5. 维护与调试
 
-### 3.3 访问地址详情
-| 组件 | URL | 描述 |
-| :--- | :--- | :--- |
-| **测试首页** | http://localhost:7777 | OHS 托管的测试页面 |
-| **OUDSM** | http://localhost:7001/oudsm | OUD 管理界面 |
-| **OAM Console** | http://localhost:7002/oamconsole | OAM 管理界面 |
-
-## 4. 维护与日志
-查看指定服务的日志：
+查看实时日志：
 ```bash
-docker-compose logs -f iam-oam
+docker compose logs -f iam-oud
+```
+
+进入 OUD 容器手动执行命令：
+```bash
+docker exec -it iam-oud /bin/bash
 ```
