@@ -6,48 +6,74 @@
 
 source .env
 
-# 1. Start core infra
-echo "Step 1: Starting core infrastructure (DB, OUD, OUDSM)..."
-docker compose up -d iam-db iam-oud iam-oudsm
+# 0. Clean up existing environment
+echo "Step 0: Cleaning up existing environment..."
+docker compose down
 
-# 2. Wait for DB and OUD to be healthy
-echo "Step 2: Waiting for database (iam-db) and OUD (iam-oud) to be healthy..."
-until [ "$(docker inspect -f '{{.State.Health.Status}}' iam-db)" == "healthy" ] && [ "$(docker inspect -f '{{.State.Health.Status}}' iam-oud)" == "healthy" ]; do
-  echo "Services are still not healthy. DB: $(docker inspect -f '{{.State.Health.Status}}' iam-db), OUD: $(docker inspect -f '{{.State.Health.Status}}' iam-oud). Waiting..."
+# 1. Start DB
+echo "Step 1: Starting Oracle Database (iam-db)..."
+docker compose up -d iam-db
+
+# 2. Wait for DB to be healthy
+echo "Step 2: Waiting for database (iam-db) to be healthy..."
+until [ "$(docker inspect -f '{{.State.Health.Status}}' iam-db)" == "healthy" ]; do
+  echo "Database is still not healthy (current status: $(docker inspect -f '{{.State.Health.Status}}' iam-db)). Waiting..."
   sleep 10
 done
 
-# 3. Wait for OUD and import data
-echo "Step 3: Performing deep setup for OUD..."
+# 3. Start OUD
+echo "Step 3: Starting OUD (iam-oud)..."
+docker compose up -d iam-oud
+
+# 4. Wait for OUD to be healthy
+echo "Step 4: Waiting for OUD (iam-oud) to be healthy..."
+until [ "$(docker inspect -f '{{.State.Health.Status}}' iam-oud)" == "healthy" ]; do
+  echo "OUD is still not healthy (current status: $(docker inspect -f '{{.State.Health.Status}}' iam-oud)). Waiting..."
+  sleep 10
+done
+
+# 5. Start OUDSM
+echo "Step 5: Starting OUDSM (iam-oudsm)..."
+docker compose up -d iam-oudsm
+
+# 6. Wait for OUDSM to be healthy
+echo "Step 6: Waiting for OUDSM (iam-oudsm) to be healthy..."
+until [ "$(docker inspect -f '{{.State.Health.Status}}' iam-oudsm)" == "healthy" ]; do
+  echo "OUDSM is still not healthy (current status: $(docker inspect -f '{{.State.Health.Status}}' iam-oudsm)). Waiting..."
+  sleep 10
+done
+
+# 7. Perform deep setup for OUD
+echo "Step 7: Performing deep setup for OUD..."
 docker exec -it iam-oud /bin/bash /u01/oracle/setup/oud/setup_oud.sh
 ./scripts/init_oud.sh
 
-# 4. Start OAM container (to access RCU tool)
-echo "Step 4: Starting OAM container for RCU creation..."
+# 8. Start OAM container
+echo "Step 8: Starting OAM container (Automatic RCU & Domain Creation)..."
 docker compose up -d iam-oam
 
-# Wait for OAM container to be ready for RCU
-sleep 10
+# 9. Wait for OAM to be healthy
+echo "Step 9: Waiting for OAM (iam-oam) to be healthy (this may take several minutes)..."
+until [ "$(docker inspect -f '{{.State.Health.Status}}' iam-oam)" == "healthy" ]; do
+  echo "OAM is still initializing (current status: $(docker inspect -f '{{.State.Health.Status}}' iam-oam)). Waiting..."
+  sleep 30
+done
 
-# 5. Run RCU to create schemas
-echo "Step 5: Running RCU inside iam-oam..."
-docker exec -it iam-oam /bin/bash /u01/oracle/scripts/init_rcu.sh
-
-# 6. Deep setup of OAM Domain and Integration
-echo "Step 6: Performing deep setup for OAM (Domain Creation & Integration)..."
+# 10. Perform deep setup for OAM Integration
+echo "Step 10: Performing deep setup for OAM Integration..."
 docker exec -it iam-oam /bin/bash /u01/oracle/setup/oam/setup_oam.sh
 
-# 7. Start OHS container
-echo "Step 7: Starting OHS container..."
+# 11. Start OHS container
+echo "Step 11: Starting OHS container..."
 docker compose up -d iam-ohs
 sleep 10
 
-# 8. Deep setup of OHS Instance
-echo "Step 8: Performing deep setup for OHS (Instance Creation & WebGate)..."
+# 12. Deep setup of OHS Instance
+echo "Step 12: Performing deep setup for OHS (Instance Creation & WebGate)..."
 docker exec -it iam-ohs /bin/bash /u01/oracle/setup/ohs/setup_ohs.sh
 
-# 9. Final start of all components
-echo "Step 9: Starting all components..."
+# 13. Final start of all components
+echo "Step 13: Starting all components..."
 docker compose up -d
 
 echo "-----------------------------------------------------------"

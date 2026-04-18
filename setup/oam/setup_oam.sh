@@ -12,18 +12,20 @@ fi
 DOMAIN_HOME="/u01/oracle/user_projects/domains/${OAM_DOMAIN:-oam_domain}"
 WLST="/u01/oracle/oracle_common/common/bin/wlst.sh"
 
-if [ -d "$DOMAIN_HOME" ]; then
-    echo "Domain already exists at $DOMAIN_HOME. Skipping creation."
-else
-    echo "Creating OAM Domain in $DOMAIN_HOME..."
-    # 调用 WLST 模板创建 Domain
-    $WLST /u01/oracle/setup/oam/create_domain.py
-fi
-
-# 启动 Admin Server 以便后续集成配置
-echo "Starting Admin Server to perform integration setup..."
-$DOMAIN_HOME/bin/startWebLogic.sh &
-sleep 60 # 等待启动
+# 检查 Admin Server 是否已启动
+echo "Checking if Admin Server is already running..."
+max_retries=10
+count=0
+while ! curl -s http://localhost:7001/console > /dev/null; do
+    echo "Waiting for Admin Server to respond... ($count/$max_retries)"
+    sleep 30
+    count=$((count + 1))
+    if [ $count -ge $max_retries ]; then
+        echo "Admin Server failed to respond. Please check OAM container logs."
+        exit 1
+    fi
+done
+echo "Admin Server is up and running."
 
 # 执行 OAM-OUD 集成配置
 echo "Configuring OUD as Identity Store..."

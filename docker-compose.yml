@@ -44,6 +44,9 @@ services:
       - ./.env:/u01/oracle/.env:ro
     networks:
       - iam-network
+    depends_on:
+      iam-db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "/u01/oracle/oud/bin/ldapsearch -h localhost -p 1389 -D \"${OUD_ROOT_DN:-cn=Directory Manager}\" -w \"${OUD_PWD:-Welcome1}\" -b \"\" -s base \"objectclass=*\" > /dev/null 2>&1"]
       interval: 30s
@@ -55,7 +58,11 @@ services:
     image: container-registry.oracle.com/middleware/oudsm:12.2.1.4.0
     container_name: iam-oudsm
     environment:
-      - OUDSM_ADMIN_PASSWORD=${OUD_PWD:-Welcome1}
+      - DOMAIN_NAME=base_domain
+      - ADMIN_USER=weblogic
+      - ADMIN_PASS=${OUD_PWD:-Welcome1}
+      - ADMIN_PORT=7001
+      - ADMIN_SSL_PORT=7002
     ports:
       - "7001:7001"
     depends_on:
@@ -63,18 +70,26 @@ services:
         condition: service_healthy
     networks:
       - iam-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7001/console > /dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
 
   # 4. Oracle Access Manager (OAM) - 身份认证与授权
   iam-oam:
     image: container-registry.oracle.com/middleware/oam:12.2.1.4.0
     container_name: iam-oam
     environment:
+      - DOMAIN_NAME=${OAM_DOMAIN:-oam_domain}
+      - ADMIN_USER=weblogic
+      - ADMIN_PASSWORD=${OAM_ADMIN_PWD:-Welcome1}
       - CONNECTION_STRING=iam-db:1521/${DB_PDB:-PDB1}
+      - RCUPREFIX=OAM01
+      - DB_USER=sys
       - DB_PASSWORD=${DB_PWD:-Welcome1}
       - DB_SCHEMA_PASSWORD=${OAM_DB_SCHEMA_PWD:-Welcome1}
-      - OAM_ADMIN_PWD=${OAM_ADMIN_PWD:-Welcome1}
       - MANAGED_SERVER_NAME=oam_server1
-      - DOMAIN_NAME=${OAM_DOMAIN:-oam_domain}
     ports:
       - "7002:7001" # Admin Server
       - "${OAM_SERVER_PORT:-14100}:14100" # OAM Server
@@ -82,6 +97,8 @@ services:
       iam-db:
         condition: service_healthy
       iam-oud:
+        condition: service_healthy
+      iam-oudsm:
         condition: service_healthy
     volumes:
       - oam_data:/u01/oracle/user_projects
@@ -95,7 +112,7 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:7001/console > /dev/null 2>&1"]
       interval: 30s
       timeout: 10s
-      retries: 10
+      retries: 20
 
   # 5. Oracle HTTP Server (OHS) - 反向代理及 OAM WebGate
   iam-ohs:
