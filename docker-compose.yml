@@ -19,49 +19,49 @@ services:
       timeout: 10s
       retries: 5
 
-  # 2. Oracle Unified Directory (OUD) - 目录服务
-  iam-oud:
-    image: container-registry.oracle.com/middleware/oud:12.2.1.4.0
-    container_name: iam-oud
-    user: "1000:0"
-    environment:
-      - OUD_INSTANCE_NAME=${OUD_INSTANCE_NAME:-oud_inst1}
-      - rootUserDN=${OUD_ROOT_DN:-cn=Directory Manager}
-      - rootUserPassword=${OUD_PWD:-Welcome1}
-      - adminPassword=${OUD_PWD:-Welcome1}
-      - ldapPort=${OUD_LDAP_PORT:-1389}
-      - ldapsPort=${OUD_LDAPS_PORT:-1636}
-      - adminConnectorPort=${OUD_ADMIN_PORT:-4444}
-      - httpPort=${OUD_HTTP_PORT:-1080}
-      - httpsPort=${OUD_HTTPS_PORT:-1081}
-      - httpAdminConnectorPort=${OUD_REST_ADMIN_PORT:-8444}
-      - baseDN=dc=example,dc=com
-      - sampleData=200
-    ports:
-      - "${OUD_LDAP_PORT:-1389}:1389"
-      - "${OUD_LDAPS_PORT:-1636}:1636"
-      - "${OUD_ADMIN_PORT:-4444}:4444"
-      - "${OUD_HTTP_PORT:-1080}:1080"
-      - "${OUD_HTTPS_PORT:-1081}:1081"
-      - "${OUD_REST_ADMIN_PORT:-8444}:8444"
-    volumes:
-      - oud_data:/u01/oracle/user_projects
-      - ./ldif:/u01/oracle/user_projects/ldif:ro
-      - ./setup:/u01/oracle/setup:ro
-      - ./.env:/u01/oracle/.env:ro
-    networks:
-      - iam-network
-    depends_on:
-      iam-db:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "/u01/oracle/oud/bin/ldapsearch -h localhost -p 1389 -D \"${OUD_ROOT_DN:-cn=Directory Manager}\" -w \"${OUD_PWD:-Welcome1}\" -b \"\" -s base \"objectclass=*\" > /dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+    # 2. Oracle Unified Directory (OUD) - 目录服务
+    iam-oud:
+      image: container-registry.oracle.com/middleware/oud:12.2.1.4.0
+      container_name: iam-oud
+      user: "1000:0"
+      environment:
+        - OUD_INSTANCE_NAME=${OUD_INSTANCE_NAME:-oud_inst1}
+        - rootUserDN=${OUD_ROOT_DN:-cn=Directory Manager}
+        - rootUserPassword=${OUD_PWD:-Welcome1}
+        - adminPassword=${OUD_PWD:-Welcome1}
+        - ldapPort=${OUD_LDAP_PORT:-1389}
+        - ldapsPort=${OUD_LDAPS_PORT:-1636}
+        - adminConnectorPort=${OUD_ADMIN_PORT:-4444}
+        - httpPort=${OUD_HTTP_PORT:-1080}
+        - httpsPort=${OUD_HTTPS_PORT:-1081}
+        - httpAdminConnectorPort=${OUD_REST_ADMIN_PORT:-8444}
+        - baseDN=dc=example,dc=com
+        - sampleData=200
+      ports:
+        - "${OUD_LDAP_PORT:-1389}:1389"
+        - "${OUD_LDAPS_PORT:-1636}:1636"
+        - "${OUD_ADMIN_PORT:-4444}:4444"
+        - "${OUD_HTTP_PORT:-1080}:1080"
+        - "${OUD_HTTPS_PORT:-1081}:1081"
+        - "${OUD_REST_ADMIN_PORT:-8444}:8444"
+      volumes:
+        - oud_data:/u01/oracle/user_projects
+        - ./ldif:/u01/oracle/user_projects/ldif:ro
+        - ./setup:/u01/oracle/setup:ro
+        - ./.env:/u01/oracle/.env:ro
+      networks:
+        - iam-network
+      depends_on:
+        iam-db:
+          condition: service_healthy
+      healthcheck:
+        test: ["CMD-SHELL", "/u01/oracle/oud/bin/ldapsearch -h localhost -p 1389 -D \"${OUD_ROOT_DN:-cn=Directory Manager}\" -w \"${OUD_PWD:-Welcome1}\" -b \"\" -s base \"objectclass=*\" > /dev/null 2>&1"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
 
-  # 3. OUD Services Manager (OUDSM) - OUD 管理控制台
-  iam-oudsm:
+    # 3. OUD Services Manager (OUDSM) - OUD 管理控制台
+    iam-oudsm:
     image: container-registry.oracle.com/middleware/oudsm:12.2.1.4.0
     container_name: iam-oudsm
     user: "1000:0"
