@@ -16,7 +16,7 @@ ADMIN_PWD="${OUD_PWD:-Welcome1}"
 
 echo "Checking if OUD is up on $OUD_HOST:$OUD_PORT..."
 # Wait for LDAP to respond
-until docker exec iam-oud ldapsearch -h localhost -p 1389 -D "$ADMIN_DN" -w "$ADMIN_PWD" -b "" -s base "objectclass=*" > /dev/null 2>&1; do
+until docker exec iam-oud /u01/oracle/oud/bin/ldapsearch -h localhost -p 1389 -D "$ADMIN_DN" -w "$ADMIN_PWD" -b "" -s base "objectclass=*" > /dev/null 2>&1; do
   echo "OUD LDAP is still not ready. Waiting..."
   sleep 5
 done
@@ -24,7 +24,7 @@ done
 echo "Importing LDIF files..."
 for f in ldif/*.ldif; do
   echo "Processing $f..."
-  docker exec -i iam-oud ldapmodify -h localhost -p 1389 -D "$ADMIN_DN" -w "$ADMIN_PWD" -a < "$f"
+  docker exec -i iam-oud /u01/oracle/oud/bin/ldapmodify -h localhost -p 1389 -D "$ADMIN_DN" -w "$ADMIN_PWD" -a < "$f"
 done
 
 echo "OUD Initialization completed."

@@ -10,10 +10,10 @@ source .env
 echo "Step 1: Starting core infrastructure (DB, OUD, OUDSM)..."
 docker compose up -d iam-db iam-oud iam-oudsm
 
-# 2. Wait for DB to be healthy
-echo "Step 2: Waiting for database (iam-db) to be healthy..."
-until [ "$(docker inspect -f '{{.State.Health.Status}}' iam-db)" == "healthy" ]; do
-  echo "Database is still not healthy (current status: $(docker inspect -f '{{.State.Health.Status}}' iam-db)). Waiting..."
+# 2. Wait for DB and OUD to be healthy
+echo "Step 2: Waiting for database (iam-db) and OUD (iam-oud) to be healthy..."
+until [ "$(docker inspect -f '{{.State.Health.Status}}' iam-db)" == "healthy" ] && [ "$(docker inspect -f '{{.State.Health.Status}}' iam-oud)" == "healthy" ]; do
+  echo "Services are still not healthy. DB: $(docker inspect -f '{{.State.Health.Status}}' iam-db), OUD: $(docker inspect -f '{{.State.Health.Status}}' iam-oud). Waiting..."
   sleep 10
 done
 

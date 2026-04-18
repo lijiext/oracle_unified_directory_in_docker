@@ -25,13 +25,14 @@ services:
     image: container-registry.oracle.com/middleware/oud:12.2.1.4.0
     container_name: iam-oud
     environment:
-      - OUD_INSTANCE_NAME=oud_inst1
-      - OUD_ADMIN_PASSWORD=${OUD_PWD:-Welcome1}
-      - OUD_ROOT_USER_DN=${OUD_ROOT_DN:-cn=Directory Manager}
-      - OUD_ROOT_USER_PASSWORD=${OUD_PWD:-Welcome1}
-      - OUD_LDAP_PORT=${OUD_LDAP_PORT:-1389}
-      - OUD_LDAPS_PORT=${OUD_LDAPS_PORT:-1636}
-      - OUD_ADMIN_PORT=${OUD_ADMIN_PORT:-4444}
+      - OUD_INSTANCE_NAME=${OUD_INSTANCE_NAME:-oud_inst1}
+      - rootUserDN=${OUD_ROOT_DN:-cn=Directory Manager}
+      - rootUserPassword=${OUD_PWD:-Welcome1}
+      - adminPassword=${OUD_PWD:-Welcome1}
+      - ldapPort=${OUD_LDAP_PORT:-1389}
+      - ldapsPort=${OUD_LDAPS_PORT:-1636}
+      - adminConnectorPort=${OUD_ADMIN_PORT:-4444}
+      - baseDN=dc=example,dc=com
     ports:
       - "${OUD_LDAP_PORT:-1389}:1389"
       - "${OUD_LDAPS_PORT:-1636}:1636"
@@ -44,7 +45,7 @@ services:
     networks:
       - iam-network
     healthcheck:
-      test: ["CMD-SHELL", "ldapsearch -h localhost -p 1389 -D \"${OUD_ROOT_DN:-cn=Directory Manager}\" -w \"${OUD_PWD:-Welcome1}\" -b \"\" -s base \"objectclass=*\" > /dev/null 2>&1"]
+      test: ["CMD-SHELL", "/u01/oracle/oud/bin/ldapsearch -h localhost -p 1389 -D \"${OUD_ROOT_DN:-cn=Directory Manager}\" -w \"${OUD_PWD:-Welcome1}\" -b \"\" -s base \"objectclass=*\" > /dev/null 2>&1"]
       interval: 30s
       timeout: 10s
       retries: 5

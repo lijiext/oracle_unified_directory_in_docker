@@ -9,14 +9,14 @@ if [ -f /u01/oracle/.env ]; then
     set +a
 fi
 
-INSTANCE_HOME="/u01/oracle/user_projects/instances/${OUD_INSTANCE_NAME:-oud_inst1}"
+INSTANCE_HOME="/u01/oracle/user_projects/${OUD_INSTANCE_NAME:-oud_inst1}/OUD"
 DS_SETUP="/u01/oracle/oud/bin/dssetup"
 
 if [ -d "$INSTANCE_HOME" ]; then
     echo "OUD instance already exists at $INSTANCE_HOME. Skipping creation."
 else
     echo "Creating OUD instance at $INSTANCE_HOME..."
-    /u01/oracle/oud/setup \
+    /u01/oracle/oud/oud-setup \
       --cli \
       --baseDN dc=example,dc=com \
       --ldapPort ${OUD_LDAP_PORT:-1389} \
