@@ -57,6 +57,7 @@ services:
   iam-oudsm:
     image: container-registry.oracle.com/middleware/oudsm:12.2.1.4.0
     container_name: iam-oudsm
+    user: "1000:0"
     environment:
       - DOMAIN_NAME=base_domain
       - ADMIN_USER=weblogic
@@ -80,6 +81,7 @@ services:
   iam-oam:
     image: container-registry.oracle.com/middleware/oam:12.2.1.4.0
     container_name: iam-oam
+    user: "1000:0"
     environment:
       - DOMAIN_NAME=${OAM_DOMAIN:-oam_domain}
       - ADMIN_USER=weblogic
@@ -118,11 +120,13 @@ services:
   iam-ohs:
     image: container-registry.oracle.com/middleware/ohs:12.2.1.4-db19-jdk8-ol8
     container_name: iam-ohs
+    user: "1000:0"
     environment:
-      - ADMIN_PASSWORD=${OHS_ADMIN_PWD:-Welcome1}
+      - DOMAIN_NAME=ohsDomain
       - OHS_COMPONENT_NAME=ohs1
       - OHS_LISTEN_PORT=${OHS_PORT:-7777}
       - OHS_SSL_PORT=${OHS_SSL_PORT:-4443}
+      - ADMIN_PASSWORD=${OHS_ADMIN_PWD:-Welcome1}
     ports:
       - "${OHS_PORT:-7777}:7777"
       - "${OHS_SSL_PORT:-4443}:4443"
@@ -134,8 +138,14 @@ services:
       - shared_data:/u01/oracle/shared
       - ./setup:/u01/oracle/setup:ro
       - ./.env:/u01/oracle/.env:ro
+      - ./ohs_boot:/u01/oracle/bootdir:ro
     networks:
       - iam-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7777 > /dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
 
 networks:
   iam-network:

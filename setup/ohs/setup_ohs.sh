@@ -9,21 +9,24 @@ if [ -f /u01/oracle/.env ]; then
     set +a
 fi
 
-OHS_DOMAIN_HOME="/u01/oracle/user_projects/domains/ohs_domain"
+OHS_DOMAIN_HOME="/u01/oracle/user_projects/domains/ohsDomain"
 OHS_INST_NAME="${OHS_COMPONENT_NAME:-ohs1}"
 WLST="/u01/oracle/oracle_common/common/bin/wlst.sh"
 
-if [ -d "$OHS_DOMAIN_HOME" ]; then
-    echo "OHS Domain already exists at $OHS_DOMAIN_HOME. Skipping creation."
-else
-    echo "Creating OHS Standalone Domain..."
-    # 调用 WLST 创建 OHS 独立域
-    $WLST /u01/oracle/setup/ohs/create_ohs_domain.py
-fi
-
-# 启动 OHS 实例
-echo "Starting OHS component $OHS_INST_NAME..."
-$OHS_DOMAIN_HOME/bin/startComponent.sh $OHS_INST_NAME
+# 检查 OHS 实例是否已启动
+echo "Checking if OHS instance $OHS_INST_NAME is running..."
+max_retries=10
+count=0
+while ! curl -s http://localhost:7777 > /dev/null; do
+    echo "Waiting for OHS instance to respond... ($count/$max_retries)"
+    sleep 30
+    count=$((count + 1))
+    if [ $count -ge $max_retries ]; then
+        echo "OHS instance failed to respond. Please check OHS container logs."
+        exit 1
+    fi
+done
+echo "OHS instance is up and running."
 
 # 创建简单的测试首页
 echo "Creating test index page..."

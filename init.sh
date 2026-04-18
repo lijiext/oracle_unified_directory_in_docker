@@ -7,8 +7,9 @@
 source .env
 
 # 0. Clean up existing environment
-echo "Step 0: Cleaning up existing environment..."
-docker compose down
+echo "Step 0: Cleaning up existing environment (including volumes)..."
+docker compose down -v --remove-orphans
+rm -rf ./ohs_boot
 
 # 1. Start DB
 echo "Step 1: Starting Oracle Database (iam-db)..."
@@ -64,12 +65,23 @@ echo "Step 10: Performing deep setup for OAM Integration..."
 docker exec -it iam-oam /bin/bash /u01/oracle/setup/oam/setup_oam.sh
 
 # 11. Start OHS container
-echo "Step 11: Starting OHS container..."
+echo "Step 11: Starting OHS container (Automatic Instance Creation)..."
+mkdir -p ./ohs_boot
+cat <<EOF > ./ohs_boot/domain.properties
+username=weblogic
+password=${OHS_ADMIN_PWD:-Welcome1}
+EOF
 docker compose up -d iam-ohs
-sleep 10
 
-# 12. Deep setup of OHS Instance
-echo "Step 12: Performing deep setup for OHS (Instance Creation & WebGate)..."
+# 12. Wait for OHS to be healthy
+echo "Step 12: Waiting for OHS (iam-ohs) to be healthy..."
+until [ "$(docker inspect -f '{{.State.Health.Status}}' iam-ohs)" == "healthy" ]; do
+  echo "OHS is still initializing (current status: $(docker inspect -f '{{.State.Health.Status}}' iam-ohs)). Waiting..."
+  sleep 20
+done
+
+# 13. Perform deep setup for OHS (WebGate, etc.)
+echo "Step 13: Performing deep setup for OHS (WebGate Integration)..."
 docker exec -it iam-ohs /bin/bash /u01/oracle/setup/ohs/setup_ohs.sh
 
 # 13. Final start of all components
